@@ -1,9 +1,10 @@
 require('dotenv').config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const express=require('express');
-const cors=require('cors');
-const app=express();
-const port=process.env.PORT || 5000;
+const { ObjectId } = require('mongodb'); 
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
@@ -25,20 +26,69 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const tutorCollection = client.db("online_tutor_booking").collection("tutors");
+    const bookedTutorCollection=client.db("online_tutor_booking").collection("booked_tutors");
 
     //get all tutors
-    app.get("/tutors",async(req,res)=>{
-        const query={};
-        const cursor=tutorCollection.find(query);
-        const result=await cursor.toArray();
-        res.send(result);
-      })
+    app.get("/tutors", async (req, res) => {
+      const query = {};
+      const cursor = tutorCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
     // post a tutor
     app.post('/addTutor', async (req, res) => {
       const data = req.body;
       const result = await tutorCollection.insertOne(data);
       res.send(result)
     })
+    // get all added tutors by user's email
+    app.get('/tutors/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const cursor = tutorCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+    // get a single tutor by id
+    app.get('/tutor/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id:new ObjectId(id) };
+      const result =await tutorCollection.findOne(query);
+    
+      res.send(result);
+    })
+    app.delete('/tutor/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await tutorCollection.deleteOne(query);
+      res.send(result);
+    })
+    //update review count of a tutor
+    app.patch('/tutor/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $inc: { review: 1 } 
+      };
+      const result = await tutorCollection.updateOne(filter, updateDoc);
+      res.send(result);
+      });
+      
+      
+    app.get('/bookedTutors/:email',async(req,res)=>{
+      const email = req.params.email;
+      const query = { email: email };
+      const cursor = bookedTutorCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+    //post a booked tutor
+    app.post('/bookedTutor', async (req, res) => {
+      const data = req.body;
+      const result = await bookedTutorCollection.insertOne(data);
+      res.send(result)
+    })
+    
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -48,9 +98,9 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-    res.send('Tutor Booking Backend is running...');
-  });
+  res.send('Tutor Booking Backend is running...');
+});
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
+  console.log(`Server running on port ${port}`);
+});
