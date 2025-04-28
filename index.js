@@ -24,9 +24,21 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    const tutorCollection = client.db("online_tutor_booking").collection("tutors");
+
+    //get all tutors
+    app.get("/tutors",async(req,res)=>{
+        const query={};
+        const cursor=tutorCollection.find(query);
+        const result=await cursor.toArray();
+        res.send(result);
+      })
+    // post a tutor
+    app.post('/addTutor', async (req, res) => {
+      const data = req.body;
+      const result = await tutorCollection.insertOne(data);
+      res.send(result)
+    })
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
