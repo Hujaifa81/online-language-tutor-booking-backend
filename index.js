@@ -63,6 +63,23 @@ async function run() {
       const result = await tutorCollection.deleteOne(query);
       res.send(result);
     })
+    app.put('/updateTutor/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          name: req.body.name,
+          email: req.body.email,
+          language: req.body.language,
+          price: req.body.price,
+          image: req.body.image,
+          review: req.body.review,
+          description: req.body.description,
+        }
+      };
+      const result = await tutorCollection.updateOne(query, updateDoc);
+      res.send(result);
+    })
     //update review count of a tutor
     app.patch('/tutor/:id', async (req, res) => {
       const id = req.params.id;
@@ -74,7 +91,7 @@ async function run() {
       res.send(result);
       });
       
-      
+    // get all booked tutors by user's email
     app.get('/bookedTutors/:email',async(req,res)=>{
       const email = req.params.email;
       const query = { email: email };
