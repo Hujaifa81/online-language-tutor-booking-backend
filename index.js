@@ -155,7 +155,7 @@ async function run() {
       const result = await bookedTutorCollection.insertOne(data);
       res.send(result)
     })
-    //count the number of  tutors by 
+    //count the number of  tutors by category
     app.get('/categoryCounts', async (req, res) => {
       try {
         const result = await tutorCollection.aggregate([
