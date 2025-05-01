@@ -4,6 +4,7 @@ const { ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const app = express();
 const port = process.env.PORT || 5000;
 const secretKey = process.env.JWT_SECRET;
@@ -12,8 +13,27 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
- // use dotenv in production
+const verifyToken=async(req,res,next)=>{
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized' });
+  }
+  try {
+     jwt.verify(token, secretKey, (err, decoded) => {
+      if (err) {
+        return res.status(401).send({ message: 'Unauthorized' });
+      }
+      req.user = decoded; 
+    
+    next();
+  })}
+   catch (err) {
+    return res.status(403).send({ message: 'Forbidden' });
+  }
+  
+}
 
 
 
@@ -79,8 +99,11 @@ async function run() {
       res.send(result)
     })
     // get all added tutors by user's email
-    app.get('/tutors/:email', async (req, res) => {
+    app.get('/tutors/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
+      if (req.user.email !== email) {
+        return res.status(403).send({ message: 'Forbidden' });
+      }
       const query = { email: email };
       const cursor = tutorCollection.find(query);
       const result = await cursor.toArray();
