@@ -1,12 +1,19 @@
 require('dotenv').config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const { ObjectId } = require('mongodb'); 
+const { ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000;
-app.use(cors());
+const secretKey = process.env.JWT_SECRET;
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials: true,
+}));
 app.use(express.json());
+
+ // use dotenv in production
 
 
 
@@ -26,11 +33,41 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const tutorCollection = client.db("online_tutor_booking").collection("tutors");
-    const bookedTutorCollection=client.db("online_tutor_booking").collection("booked_tutors");
+    const bookedTutorCollection = client.db("online_tutor_booking").collection("booked_tutors");
 
+    app.post('/jwt', (req, res) => {
+      const user = req.body; 
+      
+      // Create token with payload and expiration time
+      const token = jwt.sign(user, secretKey, { expiresIn: '7d' });
+      
+      res.
+      cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' || false ,// Set to true if using HTTPS
+        sameSite: 'strict', 
+      }).
+      send({ success: true });
+    });
+    //clear cookie on logout
+    app.post('/logout',async (req, res) => {
+      res.clearCookie('token',{
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' || false ,// Set to true if using HTTPS
+        sameSite: 'strict', 
+      })
+      res.send({ success: true });
+    })
+    
     //get all tutors
     app.get("/tutors", async (req, res) => {
-      const query = {};
+      const category = req.query.category;
+      let query = {};
+      if (category) {
+        query = { language: category };
+
+      }
+
       const cursor = tutorCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
@@ -52,18 +89,31 @@ async function run() {
     // get a single tutor by id
     app.get('/tutor/:id', async (req, res) => {
       const id = req.params.id;
-      const query = { _id:new ObjectId(id) };
-      const result =await tutorCollection.findOne(query);
-    
+      const query = { _id: new ObjectId(id) };
+      const result = await tutorCollection.findOne(query);
+
       res.send(result);
     })
-    app.delete('/tutor/:id',async(req,res)=>{
+    // get all categories of tutors
+    app.get('/categories', async (req, res) => {
+      try {
+        const categories = await tutorCollection.distinct("language");
+        res.status(200).send(categories);
+      } catch (error) {
+
+        res.status(500).send({ error: 'Failed to fetch categories' });
+      }
+    });
+
+    //delete a tutor by id
+    app.delete('/tutor/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await tutorCollection.deleteOne(query);
       res.send(result);
     })
-    app.put('/updateTutor/:id',async(req,res)=>{
+    //update a tutor by id
+    app.put('/updateTutor/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -85,14 +135,14 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
-        $inc: { review: 1 } 
+        $inc: { review: 1 }
       };
       const result = await tutorCollection.updateOne(filter, updateDoc);
       res.send(result);
-      });
-      
+    });
+
     // get all booked tutors by user's email
-    app.get('/bookedTutors/:email',async(req,res)=>{
+    app.get('/bookedTutors/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const cursor = bookedTutorCollection.find(query);
@@ -105,7 +155,21 @@ async function run() {
       const result = await bookedTutorCollection.insertOne(data);
       res.send(result)
     })
-    
+    //count the number of  tutors by 
+    app.get('/categoryCounts', async (req, res) => {
+      try {
+        const result = await tutorCollection.aggregate([
+          { $sortByCount: "$language" } // group and count by language
+        ]).toArray();
+
+        res.status(200).json(result);
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
