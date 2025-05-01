@@ -15,6 +15,7 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Middleware to verify JWT token
 const verifyToken=async(req,res,next)=>{
   const token = req.cookies.token;
   if (!token) {
