@@ -83,15 +83,27 @@ async function run() {
     //get all tutors
     app.get("/tutors", async (req, res) => {
       const category = req.query.category;
+      const page= parseInt(req.query.page) ;
+      const limit = parseInt(req.query.limit) ;
+      const skip = (page-1) * limit;
+      let query = {};
+      if(category) {
+        query = { language: category };
+      }
+        const cursor = tutorCollection.find(query).skip(skip).limit(limit);
+        const result = await cursor.toArray();
+        res.send(result);
+    
+      
+    })
+    app.get('/tutors/count', async (req, res) => {
+      const category = req.query.category;
       let query = {};
       if (category) {
         query = { language: category };
-
       }
-
-      const cursor = tutorCollection.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
+      const count = await tutorCollection.countDocuments(query);
+      res.send({ count });
     })
     // post a tutor
     app.post('/addTutor', async (req, res) => {
