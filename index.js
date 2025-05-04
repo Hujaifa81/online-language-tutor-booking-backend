@@ -9,31 +9,32 @@ const app = express();
 const port = process.env.PORT || 5000;
 const secretKey = process.env.JWT_SECRET;
 app.use(cors({
-  origin:['http://localhost:5173'],
+  origin: ['http://localhost:5173'],
   credentials: true,
 }));
 app.use(express.json());
 app.use(cookieParser());
 
 // Middleware to verify JWT token
-const verifyToken=async(req,res,next)=>{
+const verifyToken = async (req, res, next) => {
   const token = req.cookies.token;
   if (!token) {
     return res.status(401).send({ message: 'Unauthorized' });
   }
   try {
-     jwt.verify(token, secretKey, (err, decoded) => {
+    jwt.verify(token, secretKey, (err, decoded) => {
       if (err) {
         return res.status(401).send({ message: 'Unauthorized' });
       }
-      req.user = decoded; 
-    
-    next();
-  })}
-   catch (err) {
+      req.user = decoded;
+
+      next();
+    })
+  }
+  catch (err) {
     return res.status(403).send({ message: 'Forbidden' });
   }
-  
+
 }
 
 
@@ -57,51 +58,70 @@ async function run() {
     const bookedTutorCollection = client.db("online_tutor_booking").collection("booked_tutors");
 
     app.post('/jwt', (req, res) => {
-      const user = req.body; 
-      
+      const user = req.body;
+
       // Create token with payload and expiration time
       const token = jwt.sign(user, secretKey, { expiresIn: '7d' });
-      
+
       res.
-      cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' || false ,// Set to true if using HTTPS
-        sameSite: 'strict', 
-      }).
-      send({ success: true });
+        cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production' || false,// Set to true if using HTTPS
+          sameSite: 'strict',
+        }).
+        send({ success: true });
     });
     //clear cookie on logout
-    app.post('/logout',async (req, res) => {
-      res.clearCookie('token',{
+    app.post('/logout', async (req, res) => {
+      res.clearCookie('token', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' || false ,// Set to true if using HTTPS
-        sameSite: 'strict', 
+        secure: process.env.NODE_ENV === 'production' || false,// Set to true if using HTTPS
+        sameSite: 'strict',
       })
       res.send({ success: true });
     })
-    
+
     //get all tutors
     app.get("/tutors", async (req, res) => {
-      const category = req.query.category;
-      const page= parseInt(req.query.page) ;
-      const limit = parseInt(req.query.limit) ;
-      const skip = (page-1) * limit;
-      let query = {};
-      if(category) {
-        query = { language: category };
-      }
-        const cursor = tutorCollection.find(query).skip(skip).limit(limit);
-        const result = await cursor.toArray();
+      try {
+        const search = req.query.search;
+        const category = req.query.category;
+        const page = parseInt(req.query.page);
+        const limit = parseInt(req.query.limit);
+        const skip = (page - 1) * limit;
+
+        // Build query dynamically
+        let query = {};
+
+        if (search) {
+          query.language = { $regex: search, $options: 'i' };
+        }
+
+        if (category) {
+          query.language = category;
+        }
+
+        const result = await tutorCollection.find(query).skip(skip).limit(limit).toArray();
         res.send(result);
-    
-      
-    })
+
+      } catch (error) {
+        console.error('Error fetching tutors:', error);
+        res.status(500).send({ error: 'Failed to fetch tutors' });
+      }
+    });
+
     app.get('/tutors/count', async (req, res) => {
       const category = req.query.category;
+      const search = req.query.search;
       let query = {};
-      if (category) {
-        query = { language: category };
-      }
+
+        if (search) {
+          query.language = { $regex: search, $options: 'i' };
+        }
+
+        if (category) {
+          query.language = category;
+        }
       const count = await tutorCollection.countDocuments(query);
       res.send({ count });
     })
