@@ -9,7 +9,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const secretKey = process.env.JWT_SECRET;
 app.use(cors({
-  origin: ['http://localhost:5173'],
+  origin: ['http://localhost:5173','https://online-tutor-booking-5eb85.web.app'],
   credentials: true,
 }));
 app.use(express.json());
@@ -53,7 +53,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const tutorCollection = client.db("online_tutor_booking").collection("tutors");
     const bookedTutorCollection = client.db("online_tutor_booking").collection("booked_tutors");
 
@@ -66,8 +66,8 @@ async function run() {
       res.
         cookie('token', token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production' || false,// Set to true if using HTTPS
-          sameSite: 'strict',
+          secure: process.env.NODE_ENV === 'production',// Set to true if using HTTPS
+          sameSite:process.env.NODE_ENV === 'production'?'none':'strict',
         }).
         send({ success: true });
     });
@@ -75,8 +75,8 @@ async function run() {
     app.post('/logout', async (req, res) => {
       res.clearCookie('token', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' || false,// Set to true if using HTTPS
-        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production',// Set to true if using HTTPS
+        sameSite:process.env.NODE_ENV === 'production'?'none':'strict',
       })
       res.send({ success: true });
     })
@@ -105,7 +105,7 @@ async function run() {
         res.send(result);
 
       } catch (error) {
-        console.error('Error fetching tutors:', error);
+        
         res.status(500).send({ error: 'Failed to fetch tutors' });
       }
     });
@@ -198,9 +198,13 @@ async function run() {
     });
 
     // get all booked tutors by user's email
-    app.get('/bookedTutors/:email', async (req, res) => {
+    app.get('/bookedTutors/:email',verifyToken,async (req, res) => {
       const email = req.params.email;
+      if (req.user.email !== email) {
+        return res.status(403).send({ message: 'Forbidden' });
+      }
       const query = { email: email };
+
       const cursor = bookedTutorCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
@@ -220,7 +224,7 @@ async function run() {
 
         res.status(200).json(result);
       } catch (error) {
-        console.error('Error:', error);
+      
         res.status(500).json({ error: 'Internal server error' });
       }
     });
@@ -239,5 +243,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  // console.log(`Server running on port ${port}`);
 });
